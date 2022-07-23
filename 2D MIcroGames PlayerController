@@ -1,0 +1,351 @@
+using System;
+using System.Data;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class PlayerController : MonoBehaviour
+{ 
+    public GameObject weapon, weaponPoint, deathCanva, bouncer;
+    GameObject gameManager, highFallSaids;
+    public Sprite weaponSprite;
+    public AudioClip jump, damaged, deatheffect, bouncereffect;
+
+
+    SpriteRenderer spriteRenderer;
+    [SerializeField]
+    Transform groundController;
+    [SerializeField]
+    float speed, jumperForce, invincibleTime, spriteRendererAlfaTime, reboundForce, reboundTime, timeInTheAir, publicConstantMultiplier, reboundTimehighFallSaids, countdown;
+    public int healtbarControl, healtbar, sickleAmmo;
+    Rigidbody2D rb; Animator anim; AudioSource audioSource;
+
+
+    public LayerMask groundLayer;
+
+    bool stay, secondJump, death;
+    public bool directionRight, playerControllerActive;
+
+    private void Awake()
+    {
+
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        audioSource = GetComponent<AudioSource>();
+
+        gameManager = FindObjectOfType<GameManager>().gameObject;
+        highFallSaids = GameObject.Find("HighFallSaids");
+    }
+
+    // Start is called before the first frame update
+    void Start()
+    {
+
+
+
+
+
+        rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
+
+        healtbarControl = healtbar;
+        deathCanva.SetActive(false);
+
+
+
+    }
+    private static Quaternion Left(float x, float y, float z)
+    {
+        //Return the new Quaternion
+        return new Quaternion(0f, 180f, 0f, 1);
+    }
+    private static Quaternion Right(float x, float y, float z)
+    {
+        //Return the new Quaternion
+        return new Quaternion(0f, 0f, 0f, 1);
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        BouncerCountdown();
+        reboundTimehighFallSaids = reboundTimehighFallSaids - Time.deltaTime;
+        playerControllerActive = gameManager.GetComponent<GameManager>().playerControllerActive;
+        if (playerControllerActive)
+        {
+
+            FireWeapon();
+            Health();
+
+            if (reboundTime <= 0)
+            {
+                TransformDirection();
+                JumpControl();
+                ControllerSpeed();
+                DamageHightFall();
+
+
+            }
+
+            anim.SetFloat("MovingSpeed", Mathf.Abs(rb.velocity.x));
+            anim.SetFloat("JumpVelocity", rb.velocity.y);
+
+            anim.SetBool("Stay", stay);
+            anim.SetBool("Death", death);
+            invincibleTime = Mathf.Clamp((invincibleTime - Time.deltaTime), 0, 100);
+            spriteRendererAlfaTime = Mathf.Clamp((spriteRendererAlfaTime - Time.deltaTime), 0, 100);
+            reboundTime = Mathf.Clamp((reboundTime - Time.deltaTime), 0, 100);
+            sickleAmmo = Mathf.Clamp((sickleAmmo), 0, 10);
+
+
+
+
+
+
+
+            if (invincibleTime > 0)
+            {
+                spriteRenderer.color = new Color(0, 0, 0, 1f);
+
+            }
+        }
+
+
+
+
+    }
+    private void FixedUpdate()
+    {
+        if (spriteRendererAlfaTime <= 0)
+        {
+            spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 1f);
+
+        }
+
+    }
+
+    void ControllerSpeed()
+    {
+        float h = Input.GetAxis("Horizontal");
+        float hiz = h * speed;
+
+        rb.velocity = new Vector2(hiz, rb.velocity.y);
+    }
+    void JumpControl()
+    {
+        stay = Physics2D.OverlapCircle(groundController.position, .2f, groundLayer);
+
+        if (Input.GetButtonDown("Jump"))
+        {
+
+            if (Mathf.Abs(rb.velocity.y) < 0.1)
+            {
+                audioSource.PlayOneShot(jump, 1f);
+                secondJump = true;
+                rb.velocity = new Vector2(rb.velocity.x, jumperForce);
+
+            }
+
+            if (stay)
+            {
+                // secondJump = true;
+                // rb.velocity = new Vector2(rb.velocity.x, jumperForce);
+
+
+            }
+            else
+            {
+                if (secondJump)
+                {
+                    audioSource.PlayOneShot(jump, 1f);
+                    rb.velocity = new Vector2(rb.velocity.x, jumperForce);
+                    secondJump = false;
+
+                }
+
+
+            }
+
+
+
+        }
+
+
+
+    }
+    void DamageHightFall()
+    {
+        if (reboundTimehighFallSaids <= 3)
+        {
+            highFallSaids.SetActive(true);
+
+        }
+        if (reboundTimehighFallSaids <= 0)
+        {
+            highFallSaids.SetActive(false);
+
+        }
+        if (rb.velocity.y < 0)
+        {
+
+            timeInTheAir = timeInTheAir + Time.deltaTime;
+
+
+        }
+        if (stay)
+        {
+
+
+            if (timeInTheAir > publicConstantMultiplier)
+            {
+                Damage(1);
+                reboundTimehighFallSaids = 3;
+
+            }
+
+            timeInTheAir = 0;
+
+
+
+
+        }
+
+    }
+    void TransformDirection()
+    {
+        if (Input.GetKeyDown(KeyCode.A))
+        {
+            transform.rotation = Left(0, 10, 0);
+            directionRight = false;
+
+        }
+        if (Input.GetKeyDown(KeyCode.D))
+        {
+            transform.rotation = Right(0, -1890, 0);
+            directionRight = true;
+
+        }
+    }
+
+    public void Damage(int x)
+    {
+        spriteRendererAlfaTime++;
+        if (invincibleTime <= 0)
+        {
+            audioSource.PlayOneShot(damaged, 1f);
+            reboundTime = 0.25f;
+            if (directionRight)
+            {
+                rb.velocity = new Vector2(-reboundForce, rb.velocity.y);
+
+            }
+            else
+            {
+                rb.velocity = new Vector2(reboundForce, rb.velocity.y);
+
+            }
+
+
+
+            spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 0.5f);
+            healtbar = healtbar - x;
+
+        }
+
+
+
+    }
+    void Health()
+    {
+
+
+        if (healtbar <= 0)
+        {
+
+            audioSource.PlayOneShot(deatheffect, 1f);
+            deathCanva.SetActive(true);
+            death = true;
+            Time.timeScale = 0.001f;
+
+        }
+
+    }
+    public void HeallerHearthController(int x)
+    {
+        healtbar = healtbar + x;
+
+
+    }
+
+    void FireWeapon()
+    {
+        Vector3 _firePoint = new Vector3(1f, 0.2f);
+        if (sickleAmmo <= 0)
+        {
+            weaponPoint.GetComponent<SpriteRenderer>().sprite = default;
+
+        }
+
+
+
+
+        if (Input.GetKeyDown(KeyCode.F))
+        {
+            if (sickleAmmo > 0)
+            {
+                sickleAmmo--;
+                if (directionRight)
+                {
+                    Instantiate(weapon, transform.position + new Vector3(0.5f, 0.25f, 0), Quaternion.identity);
+                }
+                if (directionRight == false)
+                {
+                    Instantiate(weapon, transform.position + new Vector3(-0.5f, 0.25f, 0), Quaternion.identity);
+                }
+            }
+
+
+        }
+    }
+    private void OnCollisionEnter2D(Collision2D other)
+    {
+
+        if (other.gameObject.tag == "Bouncer")
+        {
+
+            print(bouncer.GetComponent<BouncerController>().countdown);
+            if (countdown <= 0)
+            {
+                audioSource.PlayOneShot(bouncereffect, 1f);
+                rb.velocity = new Vector2(rb.velocity.x, 25);
+                countdown = 4;
+
+            }
+
+
+        }
+
+        if (other.gameObject.tag == "HandSickle")
+        {
+            sickleAmmo++;
+            weaponPoint.GetComponent<SpriteRenderer>().sprite = weaponSprite;
+
+        }
+        if (other.gameObject.tag == "Bounder")
+        {
+            deathCanva.SetActive(true);
+            Time.timeScale = 0f;
+
+        }
+
+
+    }
+
+
+    void BouncerCountdown()
+    {
+        countdown = countdown - Time.deltaTime;
+
+    }
+
+
+}
